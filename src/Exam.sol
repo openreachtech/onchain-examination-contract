@@ -159,6 +159,10 @@ contract Exam {
             answerIndex += answerLength;
         }
 
+        if (score < passScore) {
+            revert("failed to pass exam");
+        }
+
         scoreMap[msg.sender] = score;
         return score;
     }
