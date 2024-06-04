@@ -85,6 +85,9 @@ contract Exam {
     function submitAnswer(
         bytes32 answerHash
     ) public {
+        require(block.timestamp >= submitStartTime, "not started");
+        require(block.timestamp <= submitEndTime, "already ended");
+
         answerHashMap[msg.sender] = answerHash;
     }
 
