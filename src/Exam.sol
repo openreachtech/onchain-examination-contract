@@ -5,7 +5,7 @@ contract Exam {
     enum QuestionType {
         RESERVE, // reserved for future use
         MULTIPLE_CHOICE, // 1 byte
-        ANSWER_32,  // 32 byte
+        ANSWER_32, // 32 byte
         ANSWER_64 // 64 byte (future support)
     }
 
@@ -65,7 +65,7 @@ contract Exam {
     }
 
     /**
-     * @param questionTypes_ 2 bits array of `QuestionType`
+     * @param questionTypes_ 1 byte array of `QuestionType`
      * @param questions_ encoded questions
      * @param correctAnswerHash_ hash of correct answers bytes array
      */
@@ -82,9 +82,7 @@ contract Exam {
     /**
      * @param answerHash hash of answers bytes array
      */
-    function submitAnswer(
-        bytes32 answerHash
-    ) public {
+    function submitAnswer(bytes32 answerHash) public {
         require(block.timestamp >= submitStartTime, "not started");
         require(block.timestamp <= submitEndTime, "already ended");
 
@@ -93,16 +91,21 @@ contract Exam {
 
     /**
      * @param corrects_ correct answers bytes array
-     * @param points_ 8 bits array of points
-     * @param pointsMultiplier_ 8 bits array of points multiplier
+     * @param points_ 1 byte array of points
+     * @param pointsMultiplier_ 1 byte array of points multiplier
+     * @param salt_ salt for corrects
      */
     function revealCorrects(
         bytes calldata corrects_,
         bytes calldata points_,
-        bytes calldata pointsMultiplier_
+        bytes calldata pointsMultiplier_,
+        bytes32 salt_
     ) public onlyOwner {
         // assure that the hash of corrects is equal to correctAnswerHash
-        require(keccak256(corrects_) == correctAnswerHash, "invalid corrects");
+        // Include salt to prevent pre-image attack
+        require(
+            keccak256(abi.encodePacked(corrects_, salt_)) == correctAnswerHash, "invalid corrects"
+        );
 
         corrects = corrects_;
         points = points_;
@@ -111,12 +114,15 @@ contract Exam {
 
     /**
      * @param answers_ answers bytes array
+     * @param salt_ salt for answers
      */
-    function calculateScore(
-        bytes calldata answers_
-    ) public returns (uint8 score) {
+    function calculateScore(bytes calldata answers_, bytes32 salt_) public returns (uint8 score) {
         // assure that the hash of answers is equal to answerHashMap[msg.sender]
-        require(keccak256(answers_) == answerHashMap[msg.sender], "invalid answers");
+        // Include salt to prevent pre-image attack
+        require(
+            keccak256(abi.encodePacked(answers_, salt_)) == answerHashMap[msg.sender],
+            "invalid answers"
+        );
 
         uint256 questionIndex = 0;
         uint256 answerIndex = 0;
@@ -127,9 +133,9 @@ contract Exam {
 
             uint256 answerLength;
             if (qType == QuestionType.MULTIPLE_CHOICE) {
-                answerLength = 1; // 8 bits
+                answerLength = 1; // 1 byte
             } else if (qType == QuestionType.ANSWER_32) {
-                answerLength = 32; // 256 bits
+                answerLength = 32; // 32 byte
             } else if (qType == QuestionType.ANSWER_64) {
                 revert("unsupported question type");
             } else {
